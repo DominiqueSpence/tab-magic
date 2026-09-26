@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Tab Magic Settings</title>
+    <style>
+      /* Lato is bundled locally instead of loaded from a CDN, so rendering
+         text never needs the network. */
+      @font-face {
+        font-family: "Lato";
+        font-weight: 400;
+        font-style: normal;
+        src: url("fonts/Lato-Regular.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Lato";
+        font-weight: 700;
+        font-style: normal;
+        src: url("fonts/Lato-Bold.woff2") format("woff2");
+      }
+
+      /* Inter is bundled the same way; the Protected Tabs empty state uses
+         the Light weight per the Figma design. */
+      @font-face {
+        font-family: "Inter";
+        font-weight: 300;
+        font-style: normal;
+        src: url("fonts/Inter-Light.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Inter";
+        font-weight: 400;
+        font-style: normal;
+        src: url("fonts/Inter-Regular.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: normal;
+        src: url("fonts/Inter-Bold.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: italic;
+        src: url("fonts/Inter-BoldItalic.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Inter";
+        font-weight: 400;
+        font-style: italic;
+        src: url("fonts/Inter-Italic.woff2") format("woff2");
+      }
+
+      /* Every color and shape from the Figma frame is defined here once.
+         Change the look by editing these instead of hunting through the
+         rules below. */
+      :root {
+        --bg: #0a1929;
+        --nav-border: #495057;
+        --nav-active: #ffffff;
+        --nav-inactive: #6ea8fe;
+        --nav-inactive-hover: #8fbcff;
+        --input-border: #505963;
+        --input-bg: rgba(37, 34, 34, 0.6);
+        --input-text: #e4e5e7;
+        --heading: #ffffff;
+        --hint: #9aa4ae;
+
+        --toggle-off-bg: #6c757d;
+        --toggle-off-text: #ffffff;
+        --toggle-on-bg: #6ea8fe;
+        --toggle-on-text: #0a1929;
+        --toggle-radius: 8px;
+
+        --save-bg: #1a1f25;
+        --save-text: #e4e5e7;
+        --save-success-bg: #2ea043;
+        --save-success-text: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      /* Dimmed starfield background. A 75% black scrim over the
+         full-brightness image gives the same result as the image at 25%
+         opacity, without an extra <img>. It's set on body, not a fixed
+         overlay, so background-size: cover stretches to the page's real
+         height and scrolls with the content. */
+      body {
+        font-family: "Lato", system-ui, sans-serif;
+        color: var(--input-text);
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #000000;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)),
+          url("images/home-background.png");
+        background-size: cover;
+        background-position: center top;
+        background-repeat: no-repeat;
+      }
+
+      /* The content column, centered by the flex rules above. When content
+         is taller than the viewport, the page grows and this flows top to
+         bottom instead of floating mid-screen. */
+      .tm-page {
+        width: 100%;
+        max-width: 900px;
+        padding: 0 24px 48px;
+      }
+
+      /* The page-level card that holds the nav and the bento grid,
+         matching the dark rounded panel in the Figma export. */
+      .tm-shell {
+        background: #121318;
+        border-radius: 40px;
+        padding: 28px 32px 32px;
+      }
+
+      /* --- Nav row --- */
+      .tm-nav {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        padding: 4px 0 20px;
+      }
+
+      .nav-logo {
+        width: 26px;
+        height: 26px;
+        margin-right: 8px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+
+      .nav-link {
+        position: relative;
+        background: none;
+        border: none;
+        font-family: "Inter";
+        font-weight: 400;
+        font-style: normal;
+        font-size: 17px;
+        color: #8d99ae;
+        cursor: pointer;
+        padding: 4px 0;
+        transition: opacity 0.15s ease;
+      }
+
+      .nav-link:hover {
+        opacity: 0.75;
+      }
+
+      .nav-link.active,
+      .nav-link.active:hover {
+        font-weight: 700;
+        color: #ffffff;
+        opacity: 1;
+        cursor: default;
+      }
+
+      /* Active-page indicator: a lemon bar under the current nav link.
+         .nav-link has no horizontal padding, so left:0/right:0 matches the
+         label's width and fits "Home" and "Tab Management" alike. */
+      .nav-link.active::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -8px;
+        height: 2px;
+        border-radius: 1px;
+        background: #f8f32b;
+      }
+
+      /* View switching. Both views sit in the same grid cell (grid-area: 1
+         / 1), so the shell always sizes to the taller one and the two
+         views stay the same height.
+         
+         Views switch with visibility, not display: display:none would
+         remove a view from the grid's sizing. The hidden view is also
+         marked `inert` (set in options.js) so its buttons and inputs can't
+         be tabbed to or read by screen readers. */
+      .tm-view-stack {
+        display: grid;
+      }
+
+      .tm-view-stack > .view {
+        grid-area: 1 / 1;
+        visibility: hidden;
+      }
+
+      .tm-view-stack > .view.active {
+        visibility: visible;
+      }
+
+      /* Archived/Protected panels stacked with a gap. Always flex, not
+         only when active, since the grid stack keeps this view in layout
+         even while hidden. */
+      .view-tab-management {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .placeholder {
+        color: var(--hint);
+        font-size: 15px;
+      }
+
+      /* --- Hint text --- */
+      .hint {
+        font-size: 13px;
+        color: var(--hint);
+        margin: 10px 0 0;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      /* --- Shared box style: number inputs, the select, Save --- */
+      .tm-box {
+        font-family: "Lato";
+        font-weight: 400;
+        font-size: 18px;
+        color: var(--input-text);
+        background: transparent;
+        border: 2px solid var(--input-border);
+        border-radius: 11px;
+        padding: 14px 16px;
+        height: 52px;
+      }
+
+      input.tm-box {
+        width: 90px;
+      }
+
+      .tm-select {
+        background: var(--input-bg);
+        appearance: none;
+        -webkit-appearance: none;
+        padding-right: 36px;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M2 4l5 5 5-5' fill='none' stroke='%23e3e5e7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        cursor: pointer;
+      }
+
+      .inline-label {
+        font-size: 18px;
+        color: var(--input-text);
+      }
+
+      /* Start/Stop toggle tile. Two full-size gradient layers stacked and
+         crossfaded with opacity, since browsers don't animate between two
+         gradients on their own. Both always cover the tile, so their
+         stacking order doesn't matter. */
+      .toggle-card {
+        position: relative;
+        display: block;
+        width: 100%;
+        margin: 0;
+        border: none;
+        border-radius: 24px;
+        padding: 0;
+        overflow: hidden;
+        cursor: pointer;
+        text-align: left;
+        transition: transform 0.05s ease, filter 0.15s ease;
+      }
+
+      .toggle-card:hover {
+        filter: brightness(1.08);
+      }
+
+      .toggle-card:active {
+        transform: scale(0.99);
+      }
+
+      .toggle-gradient-layer {
+        position: absolute;
+        inset: 0;
+        transition: opacity 0.6s ease;
+      }
+
+      .toggle-gradient-off {
+        background: linear-gradient(-55deg, #28328b 22%, #0b0d25 120%);
+        opacity: 1;
+      }
+
+      .toggle-gradient-on {
+        background: linear-gradient(-55deg, #e0900a 0%, #3a1f02 96%);
+        opacity: 0;
+      }
+
+      .toggle-card.is-on .toggle-gradient-off {
+        opacity: 0;
+      }
+
+      .toggle-card.is-on .toggle-gradient-on {
+        opacity: 1;
+      }
+
+      /* Positioned to the bottom-left and sized large so the text reads as
+         the tile's main focus. */
+      .toggle-card-text {
+        position: relative;
+        display: block;
+        padding-top: 48px;
+        padding-right: 28px;
+        padding-bottom: 18px;
+        padding-left: 18px;
+        color: #ffffff;
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: italic;
+      }
+
+      .toggle-card-line1 {
+        display: block;
+        font-size: 52px;
+        line-height: 1.1;
+      }
+
+      .toggle-card-line2 {
+        display: block;
+        font-size: 32px;
+        line-height: 1.2;
+      }
+
+      /* Home bento grid. Two independent flex columns. Tile heights differ
+         within a column, but both columns end up about the same total
+         height, matching the Figma layout without grid row-spanning.
+         align-items: stretch makes the stats tile grow to match the
+         settings tile (see .tm-stats-tile's flex: 1). The gap keeps
+         Figma's 2:1 horizontal:vertical ratio (200px:100px). */
+      .tm-bento-row {
+        display: flex;
+        gap: 22px;
+        align-items: stretch;
+        margin-top: 4px;
+      }
+
+      .tm-bento-col {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+      }
+
+      /* Shared dark tile shell for the settings, stats and duplicate tiles
+         (the toggle tile has its own gradient). The flex column and gap
+         give every child even spacing without hand-tuned margins. */
+      .tm-tile {
+        background: #1e2028;
+        border-radius: 22px;
+        padding: 26px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .tm-settings-tile {
+        gap: 14px;
+      }
+
+      .tm-duration-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .tm-tile-heading {
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: italic;
+        color: #ffffff;
+        margin: 0;
+      }
+
+      .tm-settings-heading {
+        font-size: 26px;
+      }
+
+      /* --- Pill-style number fields (Minutes/Hours/Days, minimum count) --- */
+      .tm-field-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .tm-pill {
+        background: #2a2d38;
+        border: 1.5px solid #3a3e4c;
+        border-radius: 8px;
+        padding: 8px 14px;
+        width: 96px;
+        transition: filter 0.15s ease;
+      }
+
+      .tm-pill:hover {
+        filter: brightness(1.15);
+      }
+
+      .tm-pill-input {
+        width: 100%;
+        background: transparent;
+        border: none;
+        outline: none;
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: italic;
+        font-size: 26px;
+        color: #ffffff;
+        text-align: right;
+        /* Hides the native number stepper. Typing the value is the
+           intended interaction for now. */
+        appearance: textfield;
+        -moz-appearance: textfield;
+      }
+
+      .tm-pill-input::-webkit-inner-spin-button,
+      .tm-pill-input::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      .tm-pill-input::placeholder {
+        color: #8d99ae;
+        font-style: italic;
+      }
+
+      .tm-field-label {
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: italic;
+        font-size: 26px;
+        color: #ffffff;
+      }
+
+      /* "Tabs are open" uses the duration sentence's quieter style instead
+         of the bold-italic field-label style, so it reads as prose next to
+         the pill ("5 | Tabs are open"). */
+      .tm-field-label-muted {
+        font-family: "Inter";
+        font-weight: 300;
+        font-style: normal;
+        font-size: 14px;
+        color: #8d99ae;
+      }
+
+      .tm-duration-sentence {
+        font-family: "Inter";
+        font-weight: 300;
+        font-style: normal;
+        font-size: 14px;
+        line-height: 1.5;
+        min-height: calc(1.5em * 2); /* reserves 2 lines so Home's height stays constant */
+        color: #8d99ae;
+        margin: 0;
+      }
+
+      /* Auto-save confirmation: a quiet text flash, since there's no Save
+         button. */
+      .tm-save-flash {
+        font-family: "Inter";
+        font-size: 12px;
+        color: #7dd88a;
+        height: 14px;
+        margin: 12px 0 0;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .tm-save-flash.is-visible {
+        opacity: 1;
+      }
+
+      /* Stats tile: tabs open / active windows. flex: 1 lets it grow to
+         match the settings tile, since both columns stretch to equal
+         height and the toggle tile above is a fixed height.
+         justify-content: center keeps the three rows together as one
+         block, matching Figma, where the divider sits just past the
+         midpoint with the pairs snug against it. Extra height becomes
+         space around the block, not gaps between rows. */
+      .tm-stats-tile {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 18px;
+      }
+
+      /* Number and label side by side; the number is the focal point, so
+         it's much larger. align-items: center, not baseline, because the
+         label is two stacked lines. */
+      .tm-stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+
+      .tm-stat-number {
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: italic;
+        font-size: 108px;
+        color: #ffffff;
+        line-height: 1;
+      }
+
+      /* Wraps two .tm-stat-label-line spans, stacked and left-aligned. */
+      .tm-stat-label {
+        font-family: "Inter";
+        font-weight: 400;
+        font-style: normal;
+        font-size: 24px;
+        color: #8d99ae;
+        text-align: left;
+      }
+
+      .tm-stat-label-line {
+        display: block;
+      }
+
+      .tm-stat-divider {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .tm-stat-divider-line {
+        flex: 1;
+        height: 1px;
+        background: rgba(141, 153, 174, 0.35);
+      }
+
+      .tm-stat-divider-word {
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: normal;
+        font-size: 13px;
+        color: #8d99ae;
+      }
+
+      /* Duplicate Tabs tile. Styled like a button (with hover) though the
+         erase click handler isn't wired up yet; see options.js. Same
+         big-number-plus-label pattern as the stats tile. */
+      .tm-duplicate-tile {
+        cursor: pointer;
+        transition: filter 0.15s ease;
+        gap: 0px;
+      }
+
+      .tm-duplicate-tile:hover {
+        filter: brightness(1.15);
+      }
+
+      .tm-duplicate-label {
+        font-family: "Inter";
+        font-weight: 700;
+        font-style: italic;
+        font-size: 28px;
+        color: #ffffff;
+      }
+
+      /* margin-top: auto pins this to the bottom of the flex-column tile
+         whatever the height of the number row above; text-align: center
+         keeps it centered. */
+      .tm-duplicate-hint {
+        display: block;
+        font-family: "Inter";
+        font-weight: 400;
+        font-style: italic;
+        font-size: 20px;
+        color: #8d99ae;
+        text-align: center;
+        margin-top: 0px;
+      }
+
+      /* Archived Tabs / Protected Tabs panel, shared shell. Geometry and
+         colors come from the design. .tm-panel's own background
+         (--tm-blue-tint, #252C60) only shows as a header band, because
+         .tm-panel-body covers the rest in --tm-surface (#1E2028). The
+         body's bottom corners stay square since .tm-panel's
+         overflow:hidden clips them to its 20px radius; the body only needs
+         a top radius, where it meets a flat wall. */
+      .tm-panel {
+        background: #252c60;
+        border-radius: 20px;
+        overflow: hidden;
+      }
+
+      .tm-panel-header {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        font-family: "Lato";
+        font-weight: 700;
+        font-size: 16px;
+        color: #ffffff;
+      }
+
+      .tm-panel-body {
+        background: #1e2028;
+        border-radius: 13px 13px 0 0;
+        overflow: hidden;
+      }
+
+      .tm-list-scroll {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      /* Scroll caps for the panels. The grid stack (.tm-view-stack) keeps
+         this view's height in sync with Home; these just stop a long list
+         from growing the tile before it scrolls. */
+      .tm-list-scroll--archived {
+        max-height: 336px; /* 6 rows * 56px */
+      }
+
+      .tm-list-scroll--protected {
+        max-height: 112px; /* 2 rows */
+      }
+
+      .tm-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .tm-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        height: 56px;
+        box-sizing: border-box;
+        padding: 0 20px;
+        border-bottom: 1px solid #2a2d38;
+        cursor: pointer;
+        transition: background-color 0.12s ease;
+      }
+
+      .tm-row:last-child {
+        border-bottom: none;
+      }
+
+      .tm-row:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .tm-row-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        border-radius: 4px;
+      }
+
+      .tm-row-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .tm-row-title {
+        font-size: 14px;
+        color: var(--input-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .tm-row-url {
+        font-size: 12px;
+        color: var(--hint);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .tm-row-time {
+        font-size: 12px;
+        color: var(--hint);
+        flex-shrink: 0;
+      }
+
+      .tm-empty {
+        padding: 28px 20px;
+        color: var(--hint);
+        font-size: 14px;
+        text-align: center;
+        cursor: default;
+      }
+
+      /* Protected Tabs' empty state is a row, not a centered block: same
+         56px height as a list row, icon and text left-aligned, per the
+         "Protected Tabs (Empty)" Figma frame. */
+      .tm-protected-empty {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        height: 56px;
+        box-sizing: border-box;
+        padding: 0 20px;
+        cursor: default;
+      }
+
+      .tm-protected-empty-text {
+        font-family: "Inter", sans-serif;
+        font-weight: 300;
+        font-size: 14px;
+        color: #8d99ae;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* --- Floating "Restore Tab" confirm, positioned at the click --- */
+      .restore-confirm {
+        position: fixed;
+        background: #1a1f25;
+        border: 1px solid var(--input-border);
+        border-radius: 10px;
+        padding: 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+      }
+
+      .restore-confirm-btn {
+        background: var(--toggle-on-bg);
+        color: var(--toggle-on-text);
+        border: none;
+        border-radius: 7px;
+        font-family: "Lato";
+        font-weight: 700;
+        font-size: 14px;
+        padding: 10px 16px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .restore-confirm-btn:hover {
+        filter: brightness(1.1);
+      }
+
+      /* --- Protected Tabs: shield icon, remove-mode "×", controls --- */
+      .tm-shield-icon {
+        width: 18px;
+        height: 18px;
+        object-fit: contain;
+        flex-shrink: 0;
+      }
+
+      .tm-remove-x {
+        background: none;
+        border: none;
+        color: var(--hint);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 6px;
+        flex-shrink: 0;
+      }
+
+      .tm-remove-x:hover {
+        color: #ff6b6b;
+      }
+
+      /* Bottom action bar inside .tm-panel: a full-width 56px row (same as
+         a list row) split in half. */
+      .tm-action-row {
+        display: flex;
+        height: 56px;
+        border-top: 1px solid #2a2d38;
+      }
+
+      .tm-action-half {
+        flex: 1;
+        border: none;
+        background: transparent;
+        color: #ffffff;
+        font-family: "Lato";
+        font-weight: 700;
+        font-size: 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: filter 0.12s ease, background-color 0.12s ease;
+      }
+
+      .tm-action-add {
+        background: #28328b;
+      }
+
+      .tm-action-add:hover {
+        filter: brightness(1.15);
+      }
+
+      .tm-action-add:active,
+      .tm-action-add.is-active {
+        filter: brightness(1.4);
+      }
+
+      .tm-action-remove:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .tm-action-remove:active,
+      .tm-action-remove.is-active {
+        background: rgba(255, 107, 107, 0.18);
+        color: #ff8a8a;
+      }
+
+      /* The live "type a domain" row shown in Add mode. Styled like a row,
+         not a form field: transparent, borderless, with a placeholder that
+         reads like the empty state. */
+      .tm-add-row-input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        outline: none;
+        font-family: "Lato";
+        font-size: 14px;
+        color: var(--input-text);
+      }
+
+      .tm-add-row-input::placeholder {
+        font-style: italic;
+        color: var(--hint);
+        opacity: 0.7;
+      }
+
+      .tm-error {
+        color: #ff8a8a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tm-page">
+    <div class="tm-shell">
+    <nav class="tm-nav">
+      <img class="nav-logo" src="icons/icon48.png" alt="" />
+      <button type="button" class="nav-link active" data-view="home">Home</button>
+      <button type="button" class="nav-link" data-view="tab-management">Tab Management</button>
+    </nav>
+
+    <div class="tm-view-stack">
+    <div id="view-home" class="view active">
+      <div class="tm-bento-row">
+        <div class="tm-bento-col">
+          <!-- Starts as is-off to match the OFF default; options.js
+               corrects it on load if the saved value is ON. Both gradient
+               layers are always present and only their opacity changes,
+               which is what animates the crossfade. -->
+          <button type="button" id="toggle" class="toggle-card is-off">
+            <span class="toggle-gradient-layer toggle-gradient-off"></span>
+            <span class="toggle-gradient-layer toggle-gradient-on"></span>
+            <span class="toggle-card-text">
+              <span class="toggle-card-line1" id="toggle-line1">Start</span>
+              <span class="toggle-card-line2">the Magic</span>
+            </span>
+          </button>
+
+          <!-- Live browser snapshot (totalTabCount/totalWindowCount),
+               tracked in options.js. -->
+          <div class="tm-tile tm-stats-tile">
+            <div class="tm-stat-row">
+              <span class="tm-stat-number" id="stat-tab-count">0</span>
+              <span class="tm-stat-label">
+                <span class="tm-stat-label-line">Tabs</span>
+                <span class="tm-stat-label-line">open</span>
+              </span>
+            </div>
+            <div class="tm-stat-divider">
+              <span class="tm-stat-divider-line"></span>
+              <span class="tm-stat-divider-word">across</span>
+              <span class="tm-stat-divider-line"></span>
+            </div>
+            <div class="tm-stat-row">
+              <span class="tm-stat-number" id="stat-window-count">0</span>
+              <span class="tm-stat-label">
+                <span class="tm-stat-label-line">Active</span>
+                <span class="tm-stat-label-line">windows</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tm-bento-col">
+          <div class="tm-tile tm-settings-tile">
+            <div class="tm-duration-fields">
+              <div class="tm-field-row">
+                <div class="tm-pill">
+                  <input
+                    type="number"
+                    id="minutesInput"
+                    class="tm-pill-input"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
+                <span class="tm-field-label">Minutes</span>
+              </div>
+              <div class="tm-field-row">
+                <div class="tm-pill">
+                  <input
+                    type="number"
+                    id="hoursInput"
+                    class="tm-pill-input"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
+                <span class="tm-field-label">Hours</span>
+              </div>
+              <div class="tm-field-row">
+                <div class="tm-pill">
+                  <input
+                    type="number"
+                    id="daysInput"
+                    class="tm-pill-input"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
+                <span class="tm-field-label">Days</span>
+              </div>
+            </div>
+            <p class="tm-duration-sentence" id="duration-sentence"></p>
+
+            <h2 class="tm-tile-heading tm-settings-heading">Never close a tab while:</h2>
+            <div class="tm-field-row">
+              <div class="tm-pill">
+                <input
+                  type="number"
+                  id="minimumTabs"
+                  class="tm-pill-input"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                />
+              </div>
+              <span class="tm-field-label-muted">Tabs are open</span>
+            </div>
+          </div>
+
+          <!-- Not functional yet: no click handler. The tile shows the
+               live duplicate-group count; the erase action and its
+               confirm step come later. -->
+          <div class="tm-tile tm-duplicate-tile" id="duplicate-tile">
+            <div class="tm-stat-row">
+              <span class="tm-stat-number" id="duplicate-count">0</span>
+              <span class="tm-duplicate-label">
+                <span class="tm-stat-label-line">Duplicate</span>
+                <span class="tm-stat-label-line">tabs open</span>
+              </span>
+            </div>
+            <span class="tm-duplicate-hint">Click here to erase them</span>
+          </div>
+        </div>
+      </div>
+      <p class="tm-save-flash" id="save-flash">Saved</p>
+    </div>
+
+    <div id="view-tab-management" class="view view-tab-management" inert>
+      <!-- Two separate blocks on purpose: the archive is a log you glance
+           at and act on, while protection rules are settings you
+           configure deliberately. Each heading sits in its panel's header
+           band (--tm-blue-tint) per the design. -->
+      <div class="tm-panel">
+        <div class="tm-panel-header">Archived Tabs</div>
+        <div class="tm-panel-body">
+          <div class="tm-list-scroll tm-list-scroll--archived">
+            <ul id="archived-list" class="tm-list"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="tm-panel">
+        <div class="tm-panel-header">Protected Tabs</div>
+        <div class="tm-panel-body">
+          <div class="tm-list-scroll tm-list-scroll--protected">
+            <ul id="protected-list" class="tm-list"></ul>
+          </div>
+          <!-- Bottom action bar, inside the same panel body as the list,
+               per the Figma frame. Split in half by flex; the two halves
+               are told apart by fill color (blue vs. neutral), with no
+               divider drawn between them. -->
+          <div class="tm-action-row">
+            <button type="button" id="protected-add-btn" class="tm-action-half tm-action-add">
+              + Add
+            </button>
+            <button type="button" id="protected-remove-btn" class="tm-action-half tm-action-remove">
+              − Remove
+            </button>
+          </div>
+        </div>
+      </div>
+      <p id="protected-error" class="hint tm-error" hidden></p>
+    </div>
+    </div>
+    </div>
+    </div>
+
+    <!-- Click-to-restore confirmation, placed near the click so a stray
+         click on a row doesn't reopen a tab instantly. Hidden until a row
+         is clicked. -->
+    <div id="restore-confirm" class="restore-confirm" hidden>
+      <button type="button" id="restore-confirm-btn" class="restore-confirm-btn">
+        Restore Tab
+      </button>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>
