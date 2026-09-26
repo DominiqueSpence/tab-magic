@@ -1,8 +1,8 @@
 # Tab Magic Privacy Policy
 
-*Last updated: September 25, 2026*
+*Last updated: September 26, 2026*
 
-Tab Magic does not collect, transmit, sell, or share any user data. Everything this extension does happens entirely on your device, using only the following Chrome permissions:
+Tab Magic does not transmit, sell, or share any user data. Everything the extension does happens entirely on your device. It stores a small amount of information about your tabs locally (the URL, title, and favicon of tabs it has closed, plus your settings), and it uses only the following Chrome permissions:
 
 ### `tabs` permission
 Used to read each open tab's URL, title, and favicon. The URL lets Tab Magic recognize domains you've marked as protected; the title and favicon are shown in your Archived Tabs list inside the extension's settings page. Tab Magic also uses Chrome's standard tab-management features to close tabs that qualify and to reopen one you choose to restore, and it notes which tabs are pinned or playing audio so it can leave them alone.
