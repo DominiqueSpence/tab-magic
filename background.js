@@ -282,11 +282,76 @@ function recordClosedTab(tab) {
 // The options page asks for a restored tab's record to be removed here
 // instead of writing to storage itself, so the removal goes through the same
 // queue as new closures.
-chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type !== "removeRecentlyClosedTab") return;
-  withRecentlyClosedQueue((closedTabs) =>
-    closedTabs.filter((entry) => entry.closedAt !== message.closedAt)
-  );
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "removeRecentlyClosedTab") {
+    withRecentlyClosedQueue((closedTabs) =>
+      closedTabs.filter((entry) => entry.closedAt !== message.closedAt)
+    );
+    return;
+  }
+
+  // The options page's duplicate tile asks for its own window's duplicates
+  // to be erased. This runs here, not in options.js, because the
+  // pinned/audible/protected checks only live in this file.
+  if (message?.type === "eraseDuplicateTabs") {
+    chrome.tabs.query({ windowId: message.windowId, windowType: "normal" }, (tabs) => {
+      const tabIdsByUrl = new Map();
+      for (const tab of tabs) {
+        if (!tabIdsByUrl.has(tab.url)) tabIdsByUrl.set(tab.url, []);
+        tabIdsByUrl.get(tab.url).push(tab.id);
+      }
+
+      let erasedCount = 0;
+      const shieldedCounts = { pinned: 0, protected: 0, audible: 0 };
+
+      // Null means "fair game to close." A reason means this tab is never
+      // touched here, no matter how old or new it is.
+      function shieldReason(tabId) {
+        if (pinnedTabIds.has(tabId)) return "pinned";
+        if (audibleTabIds.has(tabId)) return "audible";
+        if (isProtectedHostname(tabHostname.get(tabId))) return "protected";
+        return null;
+      }
+
+      for (const tabIds of tabIdsByUrl.values()) {
+        if (tabIds.length < 2) continue;
+
+        const reasons = tabIds.map(shieldReason);
+
+        if (reasons.some((reason) => reason !== null)) {
+          // At least one copy in this group is untouchable, so it's already
+          // the group's survivor regardless of age. Every other, unshielded
+          // copy is still redundant next to it and gets closed -- recency
+          // doesn't come into it.
+          tabIds.forEach((tabId, index) => {
+            const reason = reasons[index];
+            if (reason) {
+              shieldedCounts[reason]++;
+            } else {
+              closeDuplicateTab(tabId);
+              erasedCount++;
+            }
+          });
+          continue;
+        }
+
+        // Nothing in this group is shielded, so fall back to recency: the
+        // newest tab (highest id -- ids are assigned by Chrome itself and
+        // only ever increase, so this holds even across a service-worker
+        // restart, unlike a timestamp we'd have to track ourselves)
+        // survives, and every other tab in the group closes.
+        const newestTabId = Math.max(...tabIds);
+        for (const tabId of tabIds) {
+          if (tabId === newestTabId) continue;
+          closeDuplicateTab(tabId);
+          erasedCount++;
+        }
+      }
+
+      sendResponse({ erasedCount, shieldedCounts });
+    });
+    return true; // keep the message channel open for the async tabs.query above
+  }
 });
 
 // Final live check before closing a tab. The decision evaluateWindow made can
@@ -323,6 +388,22 @@ function closeAndRecordTab(tabId) {
     return;
   }
 
+  chrome.tabs.get(tabId, (tab) => {
+    if (!chrome.runtime.lastError && tab) {
+      recordClosedTab(tab);
+    }
+    chrome.tabs.remove(tabId);
+  });
+  lastActiveTime.delete(tabId);
+  tabWindowId.delete(tabId);
+}
+
+// Closes one duplicate tab and records it to Archived Tabs, same as
+// closeAndRecordTab. Eligibility (pinned/audible/protected) is decided by
+// the caller, since "erase duplicates" has its own rules, not
+// canCloseTabNow's (no active-tab or minimum-tab-count check: this is a
+// direct user action, same tier as clicking the tab's own "x").
+function closeDuplicateTab(tabId) {
   chrome.tabs.get(tabId, (tab) => {
     if (!chrome.runtime.lastError && tab) {
       recordClosedTab(tab);

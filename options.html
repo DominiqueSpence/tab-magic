@@ -553,9 +553,9 @@
         color: #8d99ae;
       }
 
-      /* Duplicate Tabs tile. Styled like a button (with hover) though the
-         erase click handler isn't wired up yet; see options.js. Same
-         big-number-plus-label pattern as the stats tile. */
+      /* Duplicate Tabs tile. Styled like a button (with hover); click
+         handler lives in options.js. Same big-number-plus-label pattern as
+         the stats tile. */
       .tm-duplicate-tile {
         cursor: pointer;
         transition: filter 0.15s ease;
@@ -586,6 +586,25 @@
         color: #8d99ae;
         text-align: center;
         margin-top: 0px;
+      }
+
+      /* Erase-result flash: same quiet-flash pattern as .tm-save-flash, but
+         scoped to this tile so a "kept, it's protected" result reads as
+         feedback instead of looking like the click did nothing. */
+      .tm-duplicate-flash {
+        display: block;
+        font-family: "Inter";
+        font-size: 12px;
+        color: #7dd88a;
+        height: 14px;
+        margin-top: 6px;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .tm-duplicate-flash.is-visible {
+        opacity: 1;
       }
 
       /* Archived Tabs / Protected Tabs panel, shared shell. Geometry and
@@ -962,9 +981,6 @@
             </div>
           </div>
 
-          <!-- Not functional yet: no click handler. The tile shows the
-               live duplicate-group count; the erase action and its
-               confirm step come later. -->
           <div class="tm-tile tm-duplicate-tile" id="duplicate-tile">
             <div class="tm-stat-row">
               <span class="tm-stat-number" id="duplicate-count">0</span>
@@ -974,6 +990,7 @@
               </span>
             </div>
             <span class="tm-duplicate-hint">Click here to erase them</span>
+            <span class="tm-duplicate-flash" id="duplicate-flash"></span>
           </div>
         </div>
       </div>
