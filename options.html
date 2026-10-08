@@ -123,6 +123,7 @@
 
       /* --- Nav row --- */
       .tm-nav {
+        position: relative;
         display: flex;
         align-items: center;
         gap: 28px;
@@ -163,18 +164,29 @@
         cursor: default;
       }
 
-      /* Active-page indicator: a lemon bar under the current nav link.
-         .nav-link has no horizontal padding, so left:0/right:0 matches the
-         label's width and fits "Home" and "Tab Management" alike. */
-      .nav-link.active::after {
-        content: "";
+      /* Active-page indicator: a single lemon bar shared by both links,
+         repositioned by options.js (top/left/width, measured off the
+         active link itself -- not a CSS bottom offset on this whole row,
+         which would sit relative to .tm-nav's own padding box instead of
+         the button) instead of being generated separately by each one --
+         that's what lets it slide between positions instead of popping on
+         and off. The "is-ready" transition gate and positioning logic live
+         in options.js. */
+      .tm-nav-indicator {
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: -8px;
         height: 2px;
         border-radius: 1px;
         background: #f8f32b;
+      }
+
+      .tm-nav-indicator.is-ready {
+        transition: left 0.4s ease, width 0.4s ease;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .tm-nav-indicator.is-ready {
+          transition: none;
+        }
       }
 
       /* View switching. Both views sit in the same grid cell (grid-area: 1
@@ -876,6 +888,7 @@
       <img class="nav-logo" src="icons/icon48.png" alt="" />
       <button type="button" class="nav-link active" data-view="home">Home</button>
       <button type="button" class="nav-link" data-view="tab-management">Tab Management</button>
+      <span class="tm-nav-indicator" id="nav-indicator"></span>
     </nav>
 
     <div class="tm-view-stack">
