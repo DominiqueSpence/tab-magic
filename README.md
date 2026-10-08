@@ -9,7 +9,7 @@ If you have ever:
 
 **Tab Magic is for you.**
 
-*Status: unlisted beta (v0.1.0). Feedback is very welcome.*
+*Status: unlisted beta (v0.2.0). Feedback is very welcome.*
 
 ![Tab Magic home screen with the Start the Magic button, tab counts, and inactivity settings](images/01-home.png)
 
