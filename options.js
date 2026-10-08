@@ -30,13 +30,15 @@ chrome.tabs.onRemoved.addListener(refreshBrowserSnapshot);
 chrome.windows.onCreated.addListener(refreshBrowserSnapshot);
 chrome.windows.onRemoved.addListener(refreshBrowserSnapshot);
 
-// Duplicate Tabs count (display only; the erase click handler isn't built
-// yet).
+// Duplicate Tabs tile: shows the live count and, on click, erases them.
 //
 // A duplicate group is 2 or more tabs in the current window with the exact
 // same URL. The tile shows the number of groups, not the number of extra
 // tabs, since erasing would collapse each group to one tab.
 const duplicateCountEl = document.getElementById("duplicate-count");
+const duplicateTileEl = document.getElementById("duplicate-tile");
+const duplicateFlashEl = document.getElementById("duplicate-flash");
+let duplicateFlashTimeout = null;
 
 function refreshDuplicateCount() {
   chrome.tabs.query({ currentWindow: true, windowType: "normal" }, (tabs) => {
@@ -60,6 +62,52 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   // Only a URL change can create or remove duplicates, so skip the more
   // frequent title/favicon updates.
   if (changeInfo.url !== undefined) refreshDuplicateCount();
+});
+
+function showDuplicateFlash(message) {
+  duplicateFlashEl.textContent = message;
+  duplicateFlashEl.classList.add("is-visible");
+  clearTimeout(duplicateFlashTimeout);
+  duplicateFlashTimeout = setTimeout(() => {
+    duplicateFlashEl.classList.remove("is-visible");
+  }, 2600);
+}
+
+// Erase click: background.js owns the grouping and closing (it has each
+// tab's creation time, which chrome.tabs.Tab doesn't expose, plus the
+// pinned/audible/protected state), so this just hands off the options
+// page's own window id and renders the result.
+duplicateTileEl.addEventListener("click", () => {
+  chrome.windows.getCurrent((win) => {
+    chrome.runtime.sendMessage(
+      { type: "eraseDuplicateTabs", windowId: win.id },
+      (response) => {
+        if (!response) return;
+
+        const { erasedCount, shieldedCounts } = response;
+        const shieldedTotal =
+          shieldedCounts.pinned + shieldedCounts.protected + shieldedCounts.audible;
+
+        if (erasedCount === 0 && shieldedTotal === 0) return; // nothing was a duplicate
+
+        const reasons = [];
+        if (shieldedCounts.pinned) reasons.push("pinned");
+        if (shieldedCounts.protected) reasons.push("protected");
+        if (shieldedCounts.audible) reasons.push("playing audio");
+
+        if (erasedCount === 0) {
+          showDuplicateFlash(`Can't erase — all duplicates are ${reasons.join("/")}`);
+          return;
+        }
+
+        let message = `Erased ${erasedCount} duplicate${erasedCount === 1 ? "" : "s"}`;
+        if (shieldedTotal > 0) {
+          message += ` · ${shieldedTotal} kept (${reasons.join("/")})`;
+        }
+        showDuplicateFlash(message);
+      }
+    );
+  });
 });
 
 const minutesInput = document.getElementById("minutesInput");
