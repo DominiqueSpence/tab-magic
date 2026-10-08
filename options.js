@@ -123,11 +123,47 @@ const toggleLine1 = document.getElementById("toggle-line1");
 // link active. This only switches views within the page.
 const navLinks = document.querySelectorAll(".nav-link");
 const views = document.querySelectorAll(".view");
+const navIndicatorEl = document.getElementById("nav-indicator");
+
+// Slides the shared indicator bar under whichever link is active.
+// top/left/width are measured off the link itself, relative to .tm-nav (its
+// offsetParent, now that .tm-nav has position: relative) -- real values on
+// a real element, which is what lets the CSS transition in options.html
+// actually animate between positions, unlike the old per-link ::after it
+// replaced. top is computed from the link's own box (offsetTop +
+// offsetHeight + a 6px gap) rather than a CSS bottom offset on .tm-nav
+// itself, which would be anchored to the whole row's padding box instead of
+// the button and land much lower than intended.
+function moveNavIndicator(activeLink) {
+  navIndicatorEl.style.top = `${activeLink.offsetTop + activeLink.offsetHeight + 6}px`;
+  navIndicatorEl.style.left = `${activeLink.offsetLeft}px`;
+  navIndicatorEl.style.width = `${activeLink.offsetWidth}px`;
+}
+
+// Positioned once, instantly (no "is-ready" yet, so no transition is
+// defined), before the class that turns the transition on is added one
+// frame later. Without this split, the bar would visibly slide in from
+// wherever it defaults to the moment the page opens.
+moveNavIndicator(document.querySelector(".nav-link.active"));
+requestAnimationFrame(() => {
+  navIndicatorEl.classList.add("is-ready");
+});
+
+// Inter is a web font (see fonts/ in the repo). If it's still loading at the
+// moment moveNavIndicator first runs, offsetWidth reflects the fallback
+// font's metrics, not Inter's -- re-measuring once it's confirmed loaded
+// corrects any resulting mismatch.
+if (document.fonts) {
+  document.fonts.ready.then(() => {
+    moveNavIndicator(document.querySelector(".nav-link.active"));
+  });
+}
 
 navLinks.forEach((link) => {
   link.addEventListener("click", () => {
     navLinks.forEach((otherLink) => otherLink.classList.remove("active"));
     link.classList.add("active");
+    moveNavIndicator(link);
 
     const targetId = `view-${link.dataset.view}`;
     views.forEach((view) => {
