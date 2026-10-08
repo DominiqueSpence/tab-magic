@@ -106,10 +106,18 @@
 
       /* The content column, centered by the flex rules above. When content
          is taller than the viewport, the page grows and this flows top to
-         bottom instead of floating mid-screen. */
+         bottom instead of floating mid-screen.
+
+         min-width is a floor, not a target: .tm-bento-col below allows its
+         tiles to shrink toward 0 (min-width: 0, so flex can compress them
+         past their natural size), which is what let pill inputs and tile
+         text start clipping into each other at small window sizes. Below
+         this width the window just gets a horizontal scrollbar instead of
+         squeezing the layout further. */
       .tm-page {
         width: 100%;
         max-width: 900px;
+        min-width: 640px;
         padding: 0 24px 48px;
       }
 
