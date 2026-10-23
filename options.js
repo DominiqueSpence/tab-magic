@@ -319,6 +319,26 @@ const restoreConfirmBtn = document.getElementById("restore-confirm-btn");
 // or the popup is dismissed.
 let pendingRestoreTab = null;
 
+// Call once a list of rows is actually in the live DOM -- scrollWidth/
+// clientWidth only mean anything post-render. Tags each label that truly
+// overflows with "is-overflowing" (the only thing that turns on the fade in
+// options.html). A label that already fits is left completely alone.
+function markOverflowingLabels(containerEl) {
+  const labels = containerEl.querySelectorAll(".tm-row-title, .tm-row-url");
+  for (const label of labels) {
+    const overflow = label.scrollWidth - label.clientWidth;
+    label.classList.toggle("is-overflowing", overflow > 0);
+  }
+}
+
+// Window resize can change whether a label overflows (or by how much), so
+// whatever's currently rendered needs re-measuring -- not just whatever was
+// true at the moment it was first drawn.
+window.addEventListener("resize", () => {
+  markOverflowingLabels(archivedListEl);
+  markOverflowingLabels(protectedListEl);
+});
+
 // Turns a timestamp into "5s ago" / "3m ago" / "2h ago".
 function timeAgo(timestamp) {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -383,6 +403,8 @@ function renderArchivedTabs(closedTabs) {
 
     archivedListEl.appendChild(row);
   }
+
+  markOverflowingLabels(archivedListEl);
 }
 
 function showRestoreConfirm(event, tab) {
@@ -568,6 +590,8 @@ function renderProtectedHostnames(hostnames) {
 
     protectedListEl.appendChild(row);
   }
+
+  markOverflowingLabels(protectedListEl);
 }
 
 // Reduces a bare domain, a full URL, or a domain with a path to just the
